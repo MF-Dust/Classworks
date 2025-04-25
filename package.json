@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "vercel-build": "pnpm install --no-frozen-lockfile && pnpm run build"
+    "vercel-build": "pnpm install --lockfile=false && pnpm run build"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
