@@ -186,7 +186,7 @@ export default {
     },
 
     maxAllowedCount() {
-      return Math.min(50, this.filteredStudents.length);
+      return Math.min(getSetting('randomPicker.maxCount'), this.filteredStudents.length);
     },
 
     // 计算剩余可用学生（排除已抽取的学生）

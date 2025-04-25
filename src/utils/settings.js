@@ -301,12 +301,12 @@ const settingsDefinitions = {
     description: "是否启用随机点名动画效果",
     icon: "mdi-animation-play",
   },
-  "randomPicker.defaultCount": {
+  "randomPicker.maxCount": {
     type: "number",
-    default: 1,
-    validate: (value) => value >= 1 && value <= 10,
-    description: "默认抽取人数",
-    icon: "mdi-counter",
+    default: 50,
+    validate: (value) => value >= 1 && value <= 100,
+    description: "随机点名最大抽取人数",
+    icon: "mdi-account-multiple",
   },
   "randomPicker.excludeAbsent": {
     type: "boolean",
@@ -325,6 +325,13 @@ const settingsDefinitions = {
     default: true,
     description: "是否排除不参与学生",
     icon: "mdi-account-cancel",
+  },
+  "randomPicker.defaultCount": {
+    type: "number",
+    default: 1,
+    validate: (value) => value >= 1 && value <= 50,
+    description: "随机点名默认抽取人数",
+    icon: "mdi-account",
   },
 };
 
