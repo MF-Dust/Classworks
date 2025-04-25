@@ -27,15 +27,13 @@ export default defineConfig({
         enabled: false,
         suppressWarnings: true,
       },
-
       lang: 'zh-CN',
       injectRegister: 'auto',
       strategies: 'generateSW',
-
-
       workbox: {
-        globPatterns: ['*'],
+        globPatterns: ['**/*.{js,css,html}', '!sw.js', '!workbox-*.js'],
         navigateFallback: 'index.html',
+        navigateFallbackAllowlist: [/^\/$/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
@@ -66,10 +64,8 @@ export default defineConfig({
             }
           },
           {
-            // 匹配除了上述规则外的所有请求
             urlPattern: ({ url }) => {
               const path = url.pathname;
-              // 排除已经由其他规则处理的路径
               return !(path.includes('/assets/') || path.includes('/pwa/'));
             },
             handler: 'NetworkFirst',
@@ -79,18 +75,22 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 // 1 天
               },
-              networkTimeoutSeconds: 10,
+              networkTimeoutSeconds: 5,
               cacheableResponse: {
-                statuses: [0, 200]
+                statuses: [0, 200, 404]
+              },
+              fetchOptions: {
+                mode: 'cors',
+                credentials: 'same-origin'
               }
             }
-          },
-
+          }
         ],
-        additionalManifestEntries: [],
         clientsClaim: true,
         skipWaiting: true,
-        importScripts: ['/sw-cache-manager.js']
+        importScripts: ['/sw-cache-manager.js'],
+        cleanupOutdatedCaches: true,
+        offlineGoogleAnalytics: false
       },
       manifest: {
         name: 'Classworks作业板',
