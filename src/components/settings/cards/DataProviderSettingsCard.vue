@@ -80,6 +80,7 @@
 
 <script>
 import SettingsCard from "@/components/SettingsCard.vue";
+import SettingItem from "@/components/settings/SettingItem.vue";
 import { getSetting } from "@/utils/settings";
 import axios from "axios";
 export default {

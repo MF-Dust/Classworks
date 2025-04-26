@@ -11,13 +11,14 @@
       <v-app-bar-title class="text-h6">设置</v-app-bar-title>
     </v-app-bar>
 
-    <v-container class="py-4">
-      <v-row>
-        <v-col cols="12" md="6">
+    <v-container class="py-4 px-3">
+      <v-row class="ma-0">
+        <v-col cols="12" md="6" class="pa-2">
           <server-settings-card
             border
             :loading="loading.server"
             @saved="onSettingsSaved"
+            class="h-100"
           />
         </v-col>
 
@@ -164,6 +165,14 @@
 
     <!-- 消息记录组件 -->
     <message-log ref="messageLog" />
+    <div class="settings-actions">
+      <n-button @click="resetDeveloperSettings" type="warning" size="small">
+        重置开发者设置
+      </n-button>
+      <n-button @click="resetMessageSettings" type="warning" size="small">
+        重置消息设置
+      </n-button>
+    </div>
   </div>
 </template>
 
@@ -434,7 +443,10 @@ export default {
       // 仅在列表实际发生变化时更新
       if (JSON.stringify(newData.list) !== JSON.stringify(this.studentData.list)) {
         this.studentData = { ...newData };
-        this.hasUnsavedChanges = true;
+        // 检查是否有未保存的更改
+        if (this.lastSavedData) {
+          this.hasUnsavedChanges = JSON.stringify(newData.list) !== JSON.stringify(this.lastSavedData);
+        }
       }
     },
 
@@ -600,10 +612,29 @@ export default {
 .settings-page {
   .v-card {
     transition: transform 0.2s, box-shadow 0.2s;
+    height: 100%;
+    margin-bottom: 16px;
+
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
     }
+
+    .v-card-text {
+      padding: 16px;
+    }
+  }
+
+  .v-container {
+    max-width: 1200px;
+  }
+
+  .v-row {
+    margin: -8px;
+  }
+
+  .v-col {
+    padding: 8px;
   }
 }
 </style>

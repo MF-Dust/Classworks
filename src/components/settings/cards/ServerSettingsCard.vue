@@ -16,17 +16,10 @@ import SettingsCard from "@/components/SettingsCard.vue";
 import SettingItem from "@/components/settings/SettingItem.vue";
 export default {
   name: "ServerSettingsCard",
-  components: { SettingsCard },
+  components: { SettingsCard, SettingItem }, // 添加 SettingItem 到 components
   props: {
     loading: Boolean,
   },
-  data() {
-    
-
-    return {
-     
-    };
-  },
-  
+  // data() 可以移除，因为没有本地状态
 };
 </script>

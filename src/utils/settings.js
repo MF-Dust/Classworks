@@ -126,18 +126,7 @@ const settingsDefinitions = {
   "server.domain": {
     type: "string",
     default: "",
-    validate: (value) => {
-      // 如果不是服务器模式或值为空，直接通过
-      if (!value) return true;
-      // 验证URL格式
-      try {
-        new URL(value);
-        return true;
-      } catch (e) {
-        console.error("域名格式无效:", e);
-        return false;
-      }
-    },
+    validate: (value) => /.*/.test(value), // 允许任何字符串输入
     description: "后端服务器域名",
     icon: "mdi-web",
     // 设置后端服务器的域名，用于从远程服务器获取数据

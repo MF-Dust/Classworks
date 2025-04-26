@@ -16,7 +16,7 @@ import SettingsCard from '@/components/SettingsCard.vue';
 import SettingItem from '@/components/settings/SettingItem.vue';
 export default {
   name: 'RefreshSettingsCard',
-  components: { SettingsCard },
+  components: { SettingsCard, SettingItem },
   data() {
 
 

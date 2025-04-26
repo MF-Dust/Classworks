@@ -14,15 +14,16 @@
 
     <template #append >
       <div class="d-flex flex-column flex-sm-row align-center">
-        <div v-if="type !== 'string' || hasOptions" class="me-2">
+        <div class="me-2">
           <!-- 根据设置类型渲染不同的控件 -->
+          <!-- Boolean -->
           <v-switch v-if="type === 'boolean'" v-model="localValue" density="comfortable" hide-details :disabled="disabled"
             @update:model-value="updateSetting" />
-
+          <!-- String with options -->
           <v-select v-else-if="type === 'string' && hasOptions" v-model="localValue" :items="selectOptions"
             density="compact" hide-details :disabled="disabled" class="setting-select" variant="outlined" bg-color="surface"
             @update:model-value="updateSetting" item-title="title" item-value="value" />
-
+          <!-- Number -->
           <div v-else-if="type === 'number'" class="d-flex align-center">
             <v-btn icon="mdi-minus" size="small" variant="text" :disabled="disabled || localValue <= minValue"
               @click="adjustValue(-stepValue)" />
@@ -34,8 +35,12 @@
             <v-btn icon="mdi-plus" size="small" variant="text" :disabled="disabled || localValue >= maxValue"
               @click="adjustValue(stepValue)" />
           </div>
+          <!-- String without options -->
+          <v-text-field v-else-if="type === 'string' && !hasOptions" v-model="localValue" density="compact" hide-details
+            :disabled="disabled" class="setting-text-field" variant="outlined" bg-color="surface"
+            @update:model-value="updateSetting" />
         </div>
-        
+
         <v-menu location="bottom">
           <template v-slot:activator="{ props }">
             <v-btn icon="mdi-dots-vertical" size="small" variant="text" v-bind="props" class="ml-2"
@@ -69,12 +74,6 @@
       </div>
     </template>
   </v-list-item>
-
-  <!-- 文本框显示在下方 -->
-  <div v-if="type === 'string' && !hasOptions" class="px-4 pb-2 pt-0">
-    <v-text-field v-model="localValue" density="compact" hide-details :disabled="disabled"
-      class="setting-text-field mt-1" variant="outlined" bg-color="surface" @update:model-value="updateSetting" />
-  </div>
 
   <!-- 消息提示 -->
   <v-snackbar v-model="showSnackbar" :timeout="2000" color="success" location="top">
@@ -344,30 +343,57 @@ export default {
       return value;
     },
 
-    updateSetting(value) {
-      // 确保值的类型正确
-      let typedValue = value;
+    updateSetting(newValue) {
+      console.log(`[SettingItem Debug] updateSetting triggered for ${this.settingKey}. Received value:`, newValue, `Current localValue: ${this.localValue}`);
+
+      // Update localValue immediately to reflect the input/change from the control
+      // This ensures the UI control reflects the user's action instantly
+      this.localValue = newValue;
+      console.log(`[SettingItem Debug] localValue updated to:`, this.localValue);
+
+      // Now, prepare the value for saving (coercion, validation)
+      let valueToSave = newValue;
 
       if (this.type === 'boolean') {
-        typedValue = Boolean(value);
+        valueToSave = Boolean(newValue);
       } else if (this.type === 'number') {
-        typedValue = Number(value);
+        valueToSave = Number(newValue);
+        // Apply range constraints
+        let minVal = this.minValue;
+        let maxVal = this.maxValue;
+        if (this.definition.validate) {
+          const validateStr = this.definition.validate.toString();
+          const minMatch = validateStr.match(/value\s*>=\s*(\d+(\.\d+)?)/);
+          const maxMatch = validateStr.match(/value\s*<=\s*(\d+(\.\d+)?)/);
+          if (minMatch) minVal = Number(minMatch[1]);
+          if (maxMatch) maxVal = Number(maxMatch[1]);
+        }
+        if (valueToSave < minVal) valueToSave = minVal;
+        if (valueToSave > maxVal) valueToSave = maxVal;
 
-        // 确保值在范围内
-        if (typedValue < this.minValue) typedValue = this.minValue;
-        if (typedValue > this.maxValue) typedValue = this.maxValue;
+        // If coercion/clamping changed the value, update localValue again to reflect the final state
+        if (valueToSave !== Number(this.localValue)) {
+            console.log(`[SettingItem Debug] Value coerced/clamped. Updating localValue again from ${this.localValue} to ${valueToSave}`);
+            this.localValue = valueToSave;
+        }
+      } else if (this.type === 'string') {
+         valueToSave = String(newValue); // Ensure it's a string
       }
 
-      // 保存设置
-      const success = setSetting(this.settingKey, typedValue);
+      console.log(`[SettingItem Debug] Attempting to save setting ${this.settingKey} with value:`, valueToSave);
+      // Attempt to save the potentially coerced/validated value
+      const success = setSetting(this.settingKey, valueToSave);
 
       if (success) {
-        this.$emit('update', this.settingKey, typedValue);
+        console.log(`[SettingItem Debug] Setting ${this.settingKey} saved successfully.`);
+        this.$emit('update', this.settingKey, valueToSave);
       } else {
-        // 如果保存失败，恢复原值
-        this.localValue = getSetting(this.settingKey);
+        console.warn(`[SettingItem Debug] Setting ${this.settingKey} failed to save with value:`, valueToSave);
         this.$emit('error', this.settingKey);
+        // Consider if reverting is needed. For now, keep the UI state as is.
+        // this.localValue = getSetting(this.settingKey); // Revert localValue if save fails
       }
+    }
     },
 
     adjustValue(amount) {
@@ -381,7 +407,6 @@ export default {
       }
     },
 
-    // 复制设置ID到剪贴板
     copySettingId() {
       navigator.clipboard.writeText(this.settingKey)
         .then(() => {
@@ -392,7 +417,6 @@ export default {
         });
     },
 
-    // 复制设置值到剪贴板
     copySettingValue() {
       let valueText = '';
 
@@ -411,7 +435,6 @@ export default {
         });
     },
 
-    // 重置为默认值
     resetToDefault() {
       if (!this.definition) return;
 
@@ -421,7 +444,6 @@ export default {
       this.$emit('update', this.settingKey, this.localValue);
     },
 
-    // 显示消息提示
     showSnackbarMessage(message) {
       this.snackbarText = message;
       this.showSnackbar = true;

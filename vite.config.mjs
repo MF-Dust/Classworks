@@ -34,10 +34,16 @@ export default defineConfig({
     Vue({
       template: { transformAssetUrls }
     }),
+    Vuetify({
+      autoImport: true,
+      styles: {
+        configFile: 'src/styles/settings.scss'
+      }
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        navigateFallback: 'index.html',
+        navigateFallback: '/index.html',
         enabled: false,
         suppressWarnings: true,
       },
