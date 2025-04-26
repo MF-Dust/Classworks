@@ -14,6 +14,20 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/',
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
+  },
+  server: {
+    host: true,
+    port: 3031,
+    strictPort: true,
+  },
+  define: {
+    'process.env.BASE_URL': JSON.stringify('/')
+  },
   plugins: [
     VueRouter(),
     Layouts(),
@@ -31,7 +45,8 @@ export default defineConfig({
       injectRegister: 'auto',
       strategies: 'generateSW',
       workbox: {
-        globPatterns: ['**/*.{js,css,html}', '!sw.js', '!workbox-*.js'],
+        globPatterns: ['**/*.{js,css,html,woff,woff2,ttf,eot,svg}'],
+        globIgnores: ['sw.js', 'workbox-*.js'],
         navigateFallback: 'index.html',
         navigateFallbackAllowlist: [/^\/$/],
         runtimeCaching: [
@@ -42,156 +57,11 @@ export default defineConfig({
               cacheName: 'assets-cache',
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 60 // 60 天
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/pwa/'),
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'pwa-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 天
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: ({ url }) => {
-              const path = url.pathname;
-              return !(path.includes('/assets/') || path.includes('/pwa/'));
-            },
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'other-resources',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 1 天
-              },
-              networkTimeoutSeconds: 5,
-              cacheableResponse: {
-                statuses: [0, 200, 404]
-              },
-              fetchOptions: {
-                mode: 'cors',
-                credentials: 'same-origin'
               }
             }
           }
-        ],
-        clientsClaim: true,
-        skipWaiting: true,
-        importScripts: ['/sw-cache-manager.js'],
-        cleanupOutdatedCaches: true,
-        offlineGoogleAnalytics: false
-      },
-      manifest: {
-        name: 'Classworks作业板',
-        short_name: 'Classworks',
-        description: '记录，查看并同步作业',
-        theme_color: '#212121',
-        background_color: '#212121',
-        display: 'standalone',
-        start_url: '/',
-        edge_side_panel: {
-          default_path: '/',
-        },
-        icons: [
-          {
-            src: '/pwa/image/pwa-64x64.png',
-            sizes: '64x64',
-            type: 'image/png'
-          },
-          {
-            src: '/pwa/image/pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/pwa/image/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: '/pwa/image/maskable-icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ],
-        shortcuts: [
-          {
-            name: '随机点名',
-            short_name: '随机点名',
-            url: '/#random-picker',
-            icons: [
-              {
-                src: '/pwa/image/pwa-64x64.png',
-                sizes: '64x64',
-                type: 'image/png'
-              }
-            ]
-          },
-        ],
+        ]
       }
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
-      autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss',
-      },
-    }),
-    Components(),
-    Fonts({
-      google: {
-        families: [{
-          name: 'Roboto',
-          styles: 'wght@100;300;400;500;700;900',
-        }],
-      },
-    }),
-    AutoImport({
-      imports: [
-        'vue',
-        'vue-router',
-      ],
-      eslintrc: {
-        enabled: true,
-      },
-      vueTemplate: true,
-    }),
-  ],
-  define: { 'process.env': {} },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    },
-    extensions: [
-      '.js',
-      '.json',
-      '.jsx',
-      '.mjs',
-      '.ts',
-      '.tsx',
-      '.vue',
-    ],
-  },
-  server: {
-    port: 3031,
-  },
-  css: {
-    preprocessorOptions: {
-      sass: {
-        api: 'modern-compiler',
-      },
-    },
-  },
+    })
+  ]
 })

@@ -6,8 +6,26 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist",
-        "buildCommand": "pnpm install --no-frozen-lockfile && pnpm run build"
+        "buildCommand": "pnpm install --no-frozen-lockfile && pnpm run build",
+        "nodeVersion": "22.x"
       }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
