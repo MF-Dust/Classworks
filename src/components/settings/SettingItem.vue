@@ -380,7 +380,7 @@ export default {
          valueToSave = String(newValue); // Ensure it's a string
       }
 
-      console.log(`[SettingItem Debug] Attempting to save setting ${this.settingKey} with value:`, valueToSave);
+console.log(`[SettingItem Debug] Attempting to save setting ${this.settingKey} with value: ${valueToSave}`);
       // Attempt to save the potentially coerced/validated value
       const success = setSetting(this.settingKey, valueToSave);
 
