@@ -1261,7 +1261,7 @@ export default {
         };
       }
       this.state.dialogTitle =
-        this.state.availableSubjects.find((s) => s.key === subject)?.name ||
+        this.availableSubjects.find((s) => s.key === subject)?.name ||
         subject;
       this.state.textarea = this.state.boardData.homework[subject].content;
       this.state.dialogVisible = true;
