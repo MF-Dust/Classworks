@@ -73,6 +73,25 @@ const settingsDefinitions = {
     icon: "mdi-database-sync",
   },
 
+  // 添加 subjects 定义
+  subjects: {
+    type: "array",
+    default: [
+      "语文",
+      "数学",
+      "英语",
+      "物理",
+      "化学",
+      "生物",
+      "政治",
+      "历史",
+      "地理",
+      "其他",
+    ],
+    description: "科目列表",
+    icon: "mdi-book-open-page-variant-outline",
+  },
+
   // 显示设置
   "display.emptySubjectDisplay": {
     type: "string",

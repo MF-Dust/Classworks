@@ -159,9 +159,8 @@
         class="ml-2"
         @click="toggleFullscreen"
       >
-        {{ state.isFullscreen ? "退出全屏" : "全屏显示"
-        }}<!-- 修改防烧屏提示卡片，使用 tonal 样式减少信息密度 -->
-      </v-btn>
+        {{ state.isFullscreen ? "退出全屏" : "全屏显示" }}
+      </v-btn><!-- 修改防烧屏提示卡片，使用 tonal 样式减少信息密度 -->
       <v-card
         v-if="showAntiScreenBurnCard"
         border
@@ -181,7 +180,7 @@
             *研究显示动态像素偏移技术可以修复屏幕坏点，起到保护屏幕的作用，数据来自实验室。<a
               href="https://patentscope.wipo.int/search/zh/detail.jsf?docId=CN232281523&_cid=P20-M8L0YX-67061-1"
               target="_blank"
-              >专利号CN108648692
+              >Patent CN108648692
             </a>
           </p>
           <p class="text-caption text-grey">
@@ -637,6 +636,8 @@ import "../styles/transitions.scss"; // 添加新的样式导入
 import { debounce, throttle } from "@/utils/debounce";
 import "../styles/global.scss";
 import { pinyin } from "pinyin-pro";
+import { mapState } from 'pinia'; // Import mapState
+import { useAppStore } from '@/stores/app'; // Import the store
 
 export default {
   name: "Classworks 作业板",
@@ -692,18 +693,7 @@ export default {
         noDataMessage: "",
         isToday: false,
         attendanceDialog: false,
-        availableSubjects: [
-          { key: "语文", name: "语文" },
-          { key: "数学", name: "数学" },
-          { key: "英语", name: "英语" },
-          { key: "物理", name: "物理" },
-          { key: "化学", name: "化学" },
-          { key: "生物", name: "生物" },
-          { key: "政治", name: "政治" },
-          { key: "历史", name: "历史" },
-          { key: "地理", name: "地理" },
-          { key: "其他", name: "其他" },
-        ],
+        // availableSubjects is now a computed property using Pinia store
         isFullscreen: false,
       },
       loading: {
@@ -739,6 +729,18 @@ export default {
   },
 
   computed: {
+    // Map subjects from Pinia store
+    ...mapState(useAppStore, ['subjects']),
+
+    availableSubjects() {
+      // Transform the store's subjects array into the format needed by the component
+      // Ensure subjects is always an array before mapping
+      const storeSubjects = Array.isArray(this.subjects) ? this.subjects : [];
+      console.log('[index.vue] Store subjects in computed:', storeSubjects); // 添加日志
+      const mappedSubjects = storeSubjects.map(subjectName => ({ key: subjectName, name: subjectName }));
+      console.log('[index.vue] Computed availableSubjects:', mappedSubjects); // 添加日志
+      return mappedSubjects;
+    },
     isMobile() {
       return useDisplay().mobile.value;
     },
@@ -771,8 +773,9 @@ export default {
         .filter(([, value]) => value.content?.trim())
         .map(([key, value]) => ({
           key,
+          // Use the reactive availableSubjects computed property
           name:
-            this.state.availableSubjects.find((s) => s.key === key)?.name ||
+            this.availableSubjects.find((s) => s.key === key)?.name ||
             key,
           content: value.content,
           order: this.state.subjectOrder.indexOf(key),
@@ -780,14 +783,18 @@ export default {
             (value.content.split("\n").filter((line) => line.trim()).length +
               1) *
               0.8
-          ),
+          )
         }));
+
+      console.log('[index.vue] Calculating sortedItems. Homework data:', this.state.boardData.homework); // 添加日志
+      console.log('[index.vue] Calculating sortedItems. Available subjects:', this.availableSubjects); // 添加日志
 
       const result = this.dynamicSort
         ? this.optimizeGridLayout(items)
         : items.sort((a, b) => a.order - b.order);
 
       this.updateSortedItemsCache(key, result);
+      console.log('[index.vue] Computed sortedItems:', result); // 添加日志
 
       return result;
     },
@@ -795,9 +802,14 @@ export default {
       const usedKeys = Object.keys(this.state.boardData.homework).filter(
         (key) => this.state.boardData.homework[key].content?.trim()
       );
-      return this.state.availableSubjects.filter(
+      console.log('[index.vue] Calculating unusedSubjects. Used keys:', usedKeys); // 添加日志
+      console.log('[index.vue] Calculating unusedSubjects. Available subjects:', this.availableSubjects); // 添加日志
+      // Use the reactive availableSubjects computed property
+      const unused = this.availableSubjects.filter(
         (subject) => !usedKeys.includes(subject.key)
       );
+      console.log('[index.vue] Computed unusedSubjects:', unused); // 添加日志
+      return unused;
     },
     emptySubjects() {
       if (this.emptySubjectDisplay !== "button") return [];

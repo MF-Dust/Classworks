@@ -5,17 +5,29 @@
       科目管理
     </v-card-title>
     <v-card-text>
-      <v-list dense>
-        <v-list-item v-for="(subject, index) in localSubjects" :key="index">
-          <v-list-item-title>{{ subject }}</v-list-item-title>
-          <template v-slot:append>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="removeSubject(index)" />
-          </template>
-        </v-list-item>
-        <v-list-item v-if="localSubjects.length === 0">
-          <v-list-item-title class="text-grey">暂无科目</v-list-item-title>
-        </v-list-item>
-      </v-list>
+      <v-row dense>
+        <v-col v-if="localSubjects.length === 0" cols="12">
+          <p class="text-grey text-center my-4">暂无科目</p>
+        </v-col>
+        <v-col
+          v-for="(subject, index) in localSubjects"
+          :key="index"
+          cols="12" sm="6" md="4" lg="3"
+        >
+          <v-card variant="outlined" class="subject-card">
+            <v-card-text class="d-flex justify-space-between align-center pa-2">
+              <span class="text-body-1">{{ subject }}</span>
+              <v-btn
+                icon="mdi-delete"
+                size="x-small"
+                variant="text"
+                color="error"
+                @click="removeSubject(index)"
+              />
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
 
       <v-divider class="my-4"></v-divider>
 
