@@ -133,6 +133,11 @@
           />
         </v-col>
 
+        <!-- 科目管理卡片 -->
+        <v-col cols="12">
+          <subject-management-card border />
+        </v-col>
+
         <!-- 添加回声洞卡片 -->
         <v-col cols="12">
           <echo-chamber-card border />
@@ -195,6 +200,7 @@ import MessageLog from '@/components/MessageLog.vue';
 import SettingsCard from '@/components/SettingsCard.vue';
 import StudentListCard from '@/components/settings/StudentListCard.vue';
 import AboutCard from '@/components/settings/AboutCard.vue';
+import SubjectManagementCard from '@/components/settings/cards/SubjectManagementCard.vue'; // 导入科目管理卡片
 import '../styles/settings.scss';
 import dataProvider from '@/utils/dataProvider';
 import SettingsExplorer from '@/components/settings/SettingsExplorer.vue';
@@ -214,7 +220,8 @@ export default {
     ThemeSettingsCard,
     EchoChamberCard,
     SettingsExplorer,
-    SettingsLinkGenerator
+    SettingsLinkGenerator,
+    SubjectManagementCard // 注册科目管理卡片
   },
   setup() {
     const { mobile } = useDisplay();

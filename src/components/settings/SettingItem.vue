@@ -17,28 +17,28 @@
         <div class="me-2">
           <!-- 根据设置类型渲染不同的控件 -->
           <!-- Boolean -->
-          <v-switch v-if="type === 'boolean'" v-model="localValue" density="comfortable" hide-details :disabled="disabled"
-            @update:model-value="updateSetting" />
+          <v-switch v-if="type === 'boolean'" v-model="inputValue" density="comfortable" hide-details :disabled="disabled"
+            @update:model-value="debouncedUpdateSetting" />
           <!-- String with options -->
-          <v-select v-else-if="type === 'string' && hasOptions" v-model="localValue" :items="selectOptions"
+          <v-select v-else-if="type === 'string' && hasOptions" v-model="inputValue" :items="selectOptions"
             density="compact" hide-details :disabled="disabled" class="setting-select" variant="outlined" bg-color="surface"
-            @update:model-value="updateSetting" item-title="title" item-value="value" />
+            @update:model-value="debouncedUpdateSetting" item-title="title" item-value="value" />
           <!-- Number -->
           <div v-else-if="type === 'number'" class="d-flex align-center">
             <v-btn icon="mdi-minus" size="small" variant="text" :disabled="disabled || localValue <= minValue"
               @click="adjustValue(-stepValue)" />
 
-            <v-text-field v-model.number="localValue" type="number" density="compact" hide-details :min="minValue"
+            <v-text-field v-model.number="inputValue" type="number" density="compact" hide-details :min="minValue"
               :max="maxValue" :step="stepValue" :disabled="disabled" class="mx-2 setting-number-field" style="width: 80px"
-              variant="outlined" bg-color="surface" @update:model-value="updateSetting" />
+              variant="outlined" bg-color="surface" @update:model-value="debouncedUpdateSetting" />
 
             <v-btn icon="mdi-plus" size="small" variant="text" :disabled="disabled || localValue >= maxValue"
               @click="adjustValue(stepValue)" />
           </div>
           <!-- String without options -->
-          <v-text-field v-else-if="type === 'string' && !hasOptions" v-model="localValue" density="compact" hide-details
+          <v-text-field v-else-if="type === 'string' && !hasOptions" v-model="inputValue" density="compact" hide-details
             :disabled="disabled" class="setting-text-field" variant="outlined" bg-color="surface"
-            @update:model-value="updateSetting" />
+            @update:model-value="debouncedUpdateSetting" />
         </div>
 
         <v-menu location="bottom">
@@ -83,6 +83,7 @@
 
 <script>
 import { getSetting, setSetting, getSettingDefinition, resetSetting } from '@/utils/settings';
+import debounce from 'lodash/debounce';
 
 export default {
   name: 'SettingItem',
@@ -131,7 +132,9 @@ export default {
 
   data() {
     return {
-      localValue: null,
+      localValue: null, // Represents the confirmed, saved value
+      inputValue: null, // Represents the value bound to the input elements (v-model)
+      debouncedUpdateSetting: null, // Holds the debounced update function
       definition: null,
       type: null,
       selectOptions: [],
@@ -244,6 +247,8 @@ export default {
   },
 
   created() {
+    // Initialize the debounced function here, ensuring 'this' context is correct
+    this.debouncedUpdateSetting = debounce(this.performUpdateSetting, 300); // 300ms delay
     this.loadSetting();
   },
 
@@ -262,6 +267,7 @@ export default {
 
       // 加载设置值
       this.localValue = getSetting(this.settingKey);
+      this.inputValue = this.localValue; // Initialize inputValue with the loaded value
 
       // 处理选项（对于字符串类型的设置）
       if (this.type === 'string') {
@@ -343,68 +349,124 @@ export default {
       return value;
     },
 
-    updateSetting(newValue) {
-      console.log(`[SettingItem Debug] updateSetting triggered for ${this.settingKey}. Received value:`, newValue, `Current localValue: ${this.localValue}`);
+    performUpdateSetting(newValue) {
+      console.log(`[SettingItem Debug] Debounced performUpdateSetting triggered for ${this.settingKey}. Input Value:`, newValue, `(Type: ${typeof newValue}), Current Confirmed Value (localValue): ${this.localValue} (Type: ${typeof this.localValue})`);
 
-      // Update localValue immediately to reflect the input/change from the control
-      // This ensures the UI control reflects the user's action instantly
-      this.localValue = newValue;
-      console.log(`[SettingItem Debug] localValue updated to:`, this.localValue);
+      let processedValue;
+      let isValid = true;
 
-      // Now, prepare the value for saving (coercion, validation)
-      let valueToSave = newValue;
-
-      if (this.type === 'boolean') {
-        valueToSave = Boolean(newValue);
-      } else if (this.type === 'number') {
-        valueToSave = Number(newValue);
-        // Apply range constraints
-        let minVal = this.minValue;
-        let maxVal = this.maxValue;
-        if (this.definition.validate) {
-          const validateStr = this.definition.validate.toString();
-          const minMatch = validateStr.match(/value\s*>=\s*(\d+(\.\d+)?)/);
-          const maxMatch = validateStr.match(/value\s*<=\s*(\d+(\.\d+)?)/);
-          if (minMatch) minVal = Number(minMatch[1]);
-          if (maxMatch) maxVal = Number(maxMatch[1]);
-        }
-        if (valueToSave < minVal) valueToSave = minVal;
-        if (valueToSave > maxVal) valueToSave = maxVal;
-
-        // If coercion/clamping changed the value, update localValue again to reflect the final state
-        if (valueToSave !== Number(this.localValue)) {
-            console.log(`[SettingItem Debug] Value coerced/clamped. Updating localValue again from ${this.localValue} to ${valueToSave}`);
-            this.localValue = valueToSave;
-        }
-      } else if (this.type === 'string') {
-         valueToSave = String(newValue); // Ensure it's a string
+      // 1. Process and Validate Input based on type
+      switch (this.type) {
+        case 'boolean':
+          processedValue = Boolean(newValue);
+          break;
+        case 'number':
+          let numValue = Number(newValue);
+          if (isNaN(numValue)) {
+            console.warn(`[SettingItem Debug] Invalid number input for ${this.settingKey}:`, newValue, `. Will revert.`);
+            isValid = false;
+          } else {
+            // Fetch min/max constraints reliably
+            let minVal = this.minValue;
+            let maxVal = this.maxValue;
+            if (this.definition && this.definition.validate) {
+              const validateStr = this.definition.validate.toString();
+              const minMatch = validateStr.match(/value\s*>=\s*(\d+(\.\d+)?)/);
+              const maxMatch = validateStr.match(/value\s*<=\s*(\d+(\.\d+)?)/);
+              if (minMatch) minVal = Number(minMatch[1]);
+              if (maxMatch) maxVal = Number(maxMatch[1]);
+            }
+            // Clamp the valid number
+            processedValue = Math.max(minVal, Math.min(maxVal, numValue));
+            console.log(`[SettingItem Debug] Clamped number for ${this.settingKey}: ${processedValue}`);
+          }
+          break;
+        case 'string':
+          processedValue = String(newValue);
+          break;
+        default:
+          processedValue = newValue; // Handle other types if necessary
       }
 
-console.log(`[SettingItem Debug] Attempting to save setting ${this.settingKey} with value: ${valueToSave}`);
-      // Attempt to save the potentially coerced/validated value
-      const success = setSetting(this.settingKey, valueToSave);
+      // 2. Handle Invalid Input: Revert Input Field
+      if (!isValid) {
+        console.warn(`[SettingItem Debug] Input (${newValue}) is invalid for ${this.settingKey}. Reverting input field.`);
+        // Use nextTick to ensure the revert happens after the current DOM update cycle
+        this.$nextTick(() => {
+          if (this.inputValue !== this.localValue) {
+            console.log(`[SettingItem Debug] Forcing inputValue revert from ${this.inputValue} to confirmed value ${this.localValue} in nextTick due to invalid input.`);
+            this.inputValue = this.localValue;
+          }
+        });
+        return; // Stop processing invalid input
+      }
 
-      if (success) {
-        console.log(`[SettingItem Debug] Setting ${this.settingKey} saved successfully.`);
-        this.$emit('update', this.settingKey, valueToSave);
+      // 3. Check if Processed Value Differs from Confirmed Value
+      let valueChanged = false;
+      if (typeof this.localValue === 'object' && this.localValue !== null) {
+        valueChanged = JSON.stringify(processedValue) !== JSON.stringify(this.localValue);
       } else {
-        console.warn(`[SettingItem Debug] Setting ${this.settingKey} failed to save with value:`, valueToSave);
-        this.$emit('error', this.settingKey);
-        // Consider if reverting is needed. For now, keep the UI state as is.
-        // this.localValue = getSetting(this.settingKey); // Revert localValue if save fails
+        valueChanged = processedValue !== this.localValue;
       }
-    }
+
+      // 4. Save if Changed
+      if (valueChanged) {
+        console.log(`[SettingItem Debug] Value changed from ${this.localValue} to ${processedValue}. Attempting to save ${this.settingKey}.`);
+        const success = setSetting(this.settingKey, processedValue);
+
+        if (success) {
+          console.log(`[SettingItem Debug] Setting ${this.settingKey} saved successfully.`);
+          // Update confirmed value *first*
+          this.localValue = processedValue;
+          // Then, ensure input reflects the *new* confirmed value if it somehow diverged
+          this.$nextTick(() => {
+            if (this.inputValue !== this.localValue) {
+              console.log(`[SettingItem Debug] Syncing inputValue (${this.inputValue}) to newly saved localValue (${this.localValue}) in nextTick after successful save.`);
+              this.inputValue = this.localValue;
+            }
+          });
+          this.$emit('update', this.settingKey, this.localValue);
+        } else {
+          console.warn(`[SettingItem Debug] Setting ${this.settingKey} failed to save. Reverting input field.`);
+          this.$emit('error', this.settingKey);
+          // Revert input field to the *last known confirmed value* (localValue)
+          this.$nextTick(() => {
+            if (this.inputValue !== this.localValue) {
+              console.log(`[SettingItem Debug] Forcing inputValue (${this.inputValue}) revert to confirmed localValue (${this.localValue}) in nextTick after failed save.`);
+              this.inputValue = this.localValue;
+            }
+          });
+        }
+      } else {
+        console.log(`[SettingItem Debug] Processed value (${processedValue}) is same as confirmed value (${this.localValue}). No save needed.`);
+        // Even if the value didn't change *after processing*, the raw input might have been different
+        // (e.g., user typed '150' for a max 100 field, processed to 100, which was already the value).
+        // Ensure the input field reflects the *confirmed* value.
+        this.$nextTick(() => {
+          if (this.inputValue !== this.localValue) {
+            console.log(`[SettingItem Debug] Processed value same, but raw input might differ. Syncing inputValue (${this.inputValue}) to confirmed localValue (${this.localValue}) in nextTick.`);
+            this.inputValue = this.localValue;
+          }
+        });
+      }
     },
 
     adjustValue(amount) {
       if (this.type !== 'number') return;
 
-      const newValue = this.localValue + amount;
+      // Calculate the potential new value based on the *current confirmed value*
+      // This prevents drift if multiple clicks happen before debounce triggers
+      const potentialNewValue = Number(this.localValue) + amount;
 
-      if (newValue >= this.minValue && newValue <= this.maxValue) {
-        this.localValue = newValue;
-        this.updateSetting(newValue);
+      // Clamp the potential value within bounds
+      const clampedValue = Math.max(this.minValue, Math.min(this.maxValue, potentialNewValue));
+
+      // Update the input value immediately for responsiveness
+      if (this.inputValue !== clampedValue) {
+          this.inputValue = clampedValue;
       }
+      // Trigger the debounced update with the clamped value
+      this.debouncedUpdateSetting(clampedValue);
     },
 
     copySettingId() {
@@ -440,6 +502,7 @@ console.log(`[SettingItem Debug] Attempting to save setting ${this.settingKey} w
 
       resetSetting(this.settingKey);
       this.localValue = getSetting(this.settingKey);
+      this.inputValue = this.localValue; // Sync input value as well
       this.showSnackbarMessage('已重置为默认值');
       this.$emit('update', this.settingKey, this.localValue);
     },
