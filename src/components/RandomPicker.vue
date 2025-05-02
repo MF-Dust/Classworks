@@ -3,37 +3,48 @@
     <v-card class="random-picker-card">
       <v-card-title class="text-h5 d-flex align-center">
         <v-icon icon="mdi-account-question" class="mr-2" />
-        随机点名
+        随机抽选
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" @click="dialog = false" />
       </v-card-title>
 
       <v-card-text v-if="!isPickingStarted" class="text-center py-6">
-        <div class="text-h6 mb-4">请选择抽取人数</div>
+        <!-- Mode Toggle -->
+        <v-btn-toggle v-model="pickingMode" mandatory color="primary" variant="outlined" class="mode-toggle">
+          <v-btn value="individual" prepend-icon="mdi-account">
+            抽个人
+          </v-btn>
+          <v-btn value="group" prepend-icon="mdi-account-group">
+            抽小组
+          </v-btn>
+        </v-btn-toggle>
+
+        <div class="text-h6 mb-4">请选择抽取{{ countLabel }}</div>
 
         <div class="d-flex justify-center align-center counter-container">
-          <v-btn size="x-large" icon="mdi-minus" variant="tonal" color="primary" :disabled="count <= 1"
+          <v-btn size="x-large" icon="mdi-minus" variant="tonal" color="primary" :disabled="(pickingMode === 'individual' ? count : numberOfGroups) <= minAllowedCount"
             @click="decrementCount" class="counter-btn" />
 
           <div class="count-display mx-8">
-            <span class="text-h2 font-weight-bold">{{ count }}</span>
-            <span class="text-subtitle-1 ml-2">人</span>
+            <span class="text-h2 font-weight-bold">{{ pickingMode === 'individual' ? count : numberOfGroups }}</span>
+            <span class="text-subtitle-1 ml-2">{{ countLabel }}</span>
           </div>
 
-          <v-btn size="x-large" icon="mdi-plus" variant="tonal" color="primary" :disabled="count >= maxAllowedCount"
+          <v-btn size="x-large" icon="mdi-plus" variant="tonal" color="primary" :disabled="(pickingMode === 'individual' ? count : numberOfGroups) >= maxAllowedCount"
             @click="incrementCount" class="counter-btn" />
         </div>
 
-
-
         <div class="mt-4">
           <v-btn size="x-large" color="primary" prepend-icon="mdi-dice-multiple" @click="startPicking"
-            :disabled="filteredStudents.length === 0" class="start-btn">
+            :disabled="startDisabled" class="start-btn">
             开始抽取
           </v-btn>
         </div>
 
-        <div v-if="filteredStudents.length === 0" class="mt-4 text-error">
+        <div v-if="startDisabled && filteredStudents.length > 0" class="mt-4 text-warning">
+          {{ pickingMode === 'group' ? '学生人数不足以分成所选组数' : '可抽取学生人数不足' }}
+        </div>
+        <div v-else-if="filteredStudents.length === 0" class="mt-4 text-error">
           没有可抽取的学生，请调整过滤选项
         </div>
 
@@ -77,7 +88,8 @@
       </v-card-text>
 
       <v-card-text v-else class="text-center py-6">
-        <div v-if="isAnimating" class="animation-container">
+        <!-- Animation for Individual Picking -->
+        <div v-if="isAnimating && pickingMode === 'individual'" class="animation-container">
           <div class="animation-wrapper">
             <transition-group name="shuffle" tag="div" class="shuffle-container">
               <div v-for="(student, index) in animationStudents" :key="student.id" class="student-item"
@@ -88,20 +100,38 @@
           </div>
         </div>
 
-        <div v-else class="result-container">
+        <!-- Results Display -->
+        <div v-else class="result-display">
           <div class="text-h6 mb-4">抽取结果</div>
-          <v-card v-for="(student, index) in pickedStudents" :key="index" variant="outlined" color="primary"
-            class="mb-2 result-card">
-            <v-card-text class="text-h4 text-center py-4 d-flex align-center justify-center">
-              {{ student }}
-              <v-btn icon="mdi-refresh" variant="text" size="small" class="ml-2 refresh-btn"
-                @click="refreshSingleStudent(index)" :disabled="remainingStudents.length === 0"
-                :title="remainingStudents.length === 0 ? '没有更多可用学生' : '重新抽取此学生'" />
-            </v-card-text>
-          </v-card>
+
+          <!-- Individual Results -->
+          <div v-if="pickingMode === 'individual'">
+            <v-card v-for="(student, index) in pickedStudents" :key="index" variant="outlined" color="primary"
+              class="mb-2 result-card">
+              <v-card-text class="text-h4 text-center py-4 d-flex align-center justify-center">
+                {{ student }}
+                <v-btn icon="mdi-refresh" variant="text" size="small" class="ml-2 refresh-btn"
+                  @click="refreshSingleStudent(index)" :disabled="remainingStudents.length === 0"
+                  :title="remainingStudents.length === 0 ? '没有更多可用学生' : '重新抽取此学生'" />
+              </v-card-text>
+            </v-card>
+          </div>
+
+          <!-- Group Results -->
+          <div v-else-if="pickingMode === 'group'">
+            <v-card v-for="(group, index) in pickedGroups" :key="index" class="mb-3 group-result-card" variant="tonal">
+              <v-card-title class="group-title">小组 {{ index + 1 }}</v-card-title>
+              <v-card-text>
+                <v-chip v-for="student in group" :key="student" class="student-chip" label size="large">
+                  {{ student }}
+                </v-chip>
+                <div v-if="group.length === 0" class="text-grey">（空）</div>
+              </v-card-text>
+            </v-card>
+          </div>
 
           <div class="mt-8 d-flex justify-center">
-            <v-btn color="primary" prepend-icon="mdi-refresh" @click="resetPicker" size="large" class="mx-2">
+            <v-btn color="primary" prepend-icon="mdi-refresh" @click="resetPicker()" size="large" class="mx-2">
               重新抽取
             </v-btn>
             <v-btn color="grey" variant="outlined" @click="dialog = false" size="large" class="mx-2">
@@ -115,7 +145,7 @@
 </template>
 
 <script>
-import { getSetting } from '@/utils/settings';
+import { getSetting, settingsDefinitions } from '@/utils/settings'; // Import settingsDefinitions
 
 export default {
   name: 'RandomPicker',
@@ -134,9 +164,12 @@ export default {
     return {
       dialog: false,
       count: getSetting('randomPicker.defaultCount'),
+      pickingMode: 'individual', // 'individual' or 'group'
+      numberOfGroups: getSetting('randomPicker.numberOfGroups'),
       isPickingStarted: false,
       isAnimating: false,
       pickedStudents: [],
+      pickedGroups: [], // To store the results for group picking
       animationStudents: [],
       highlightedIndices: [],
       animationTimer: null,
@@ -186,7 +219,29 @@ export default {
     },
 
     maxAllowedCount() {
-      return Math.min(getSetting('randomPicker.maxCount'), this.filteredStudents.length);
+      // Adjust max count based on mode
+      if (this.pickingMode === 'individual') {
+        return Math.min(getSetting('randomPicker.maxCount'), this.filteredStudents.length);
+      } else {
+        // For groups, the 'count' represents number of groups, not individuals
+        // Max groups is defined in settings, min is 2
+        const maxGroupsFromSettings = settingsDefinitions['randomPicker.numberOfGroups'].validate ? settingsDefinitions['randomPicker.numberOfGroups'].validate(10) ? 10 : 2 : 10; // Use validation if possible, fallback
+        return Math.min(maxGroupsFromSettings, Math.floor(this.filteredStudents.length / 2)); // Cannot have more groups than half the students
+      }
+    },
+    minAllowedCount() {
+      return this.pickingMode === 'individual' ? 1 : 2; // Min 1 individual, min 2 groups
+    },
+    countLabel() {
+      return this.pickingMode === 'individual' ? '人数' : '组数';
+    },
+    startDisabled() {
+      if (this.pickingMode === 'individual') {
+        return this.filteredStudents.length === 0 || this.count > this.filteredStudents.length;
+      } else {
+        // Disable if not enough students for the selected number of groups (at least 1 per group ideally, min 2 groups)
+        return this.filteredStudents.length < this.numberOfGroups || this.numberOfGroups < 2;
+      }
     },
 
     // 计算剩余可用学生（排除已抽取的学生）
@@ -231,41 +286,90 @@ export default {
   methods: {
     open() {
       this.dialog = true;
-    },
-    incrementCount() {
-      if (this.count < this.maxAllowedCount) {
-        this.count++;
-      }
+      // Reset state when opening
+      this.resetPicker(false); // Don't reset filters on open
+      // Re-fetch settings in case they changed
+      this.count = getSetting('randomPicker.defaultCount');
+      this.numberOfGroups = getSetting('randomPicker.numberOfGroups');
+      this.tempFilters.excludeAbsent = getSetting('randomPicker.excludeAbsent');
+      this.tempFilters.excludeLate = getSetting('randomPicker.excludeLate');
+      this.tempFilters.excludeExcluded = getSetting('randomPicker.excludeExcluded');
     },
     decrementCount() {
-      if (this.count > 1) {
+      if (this.pickingMode === 'individual' && this.count > 1) {
         this.count--;
+      } else if (this.pickingMode === 'group' && this.numberOfGroups > this.minAllowedCount) {
+        this.numberOfGroups--;
+      }
+    },
+    incrementCount() {
+      if (this.pickingMode === 'individual' && this.count < this.maxAllowedCount) {
+        this.count++;
+      } else if (this.pickingMode === 'group' && this.numberOfGroups < this.maxAllowedCount) {
+        this.numberOfGroups++;
       }
     },
     startPicking() {
-      if (this.filteredStudents.length === 0) return;
+      if (this.startDisabled) return;
 
       this.isPickingStarted = true;
+      this.pickedStudents = [];
+      this.pickedGroups = [];
 
-      if (getSetting('randomPicker.animation')) {
-        this.startAnimation();
+      if (this.pickingMode === 'individual') {
+        this.startIndividualPicking();
       } else {
-        this.finishPicking();
+        this.startGroupPicking();
       }
     },
-    startAnimation() {
-      this.isAnimating = true;
 
-      // 创建动画用的学生列表（添加ID以便于动画）
-      this.animationStudents = this.filteredStudents.map((name, index) => ({
-        id: `student-${index}`,
-        name
-      }));
-
-      // 随机高亮显示
-      this.animateHighlight();
+    startIndividualPicking() {
+      const useAnimation = getSetting('randomPicker.animation');
+      if (useAnimation && this.count > 0) {
+        this.isAnimating = true;
+        this.runAnimation(() => {
+          this.pickStudents();
+          this.isAnimating = false;
+        });
+      } else {
+        this.pickStudents();
+        this.isAnimating = false; // Ensure animation state is false
+      }
     },
-    animateHighlight() {
+
+    startGroupPicking() {
+      // Group picking doesn't use the shuffle animation for now
+      this.isAnimating = false;
+      this.pickGroups();
+    },
+
+    pickStudents() {
+      const shuffled = [...this.filteredStudents].sort(() => 0.5 - Math.random());
+      this.pickedStudents = shuffled.slice(0, this.count);
+    },
+
+    pickGroups() {
+      if (this.filteredStudents.length < this.numberOfGroups || this.numberOfGroups < 2) {
+        console.error("无法分组，学生人数不足或组数无效");
+        this.pickedGroups = [];
+        return;
+      }
+
+      // Shuffle the filtered students
+      let shuffled = [...this.filteredStudents].sort(() => 0.5 - Math.random());
+
+      // Distribute students into groups
+      const groups = Array.from({ length: this.numberOfGroups }, () => []);
+      let groupIndex = 0;
+      shuffled.forEach(student => {
+        groups[groupIndex].push(student);
+        groupIndex = (groupIndex + 1) % this.numberOfGroups;
+      });
+
+      this.pickedGroups = groups;
+    },
+
+    runAnimation(callback) {
       const totalSteps = 5; // 动画总步数
       let currentStep = 0;
       const intervalTime = 50; // 初始间隔时间
@@ -315,36 +419,24 @@ export default {
       this.isPickingStarted = false;
       this.isAnimating = false;
       this.pickedStudents = [];
-      if (this.animationTimer) {
-        clearTimeout(this.animationTimer);
-        this.animationTimer = null;
-      }
-    },
-    // 刷新单个学生
-    refreshSingleStudent(index) {
-      if (this.remainingStudents.length === 0) return;
-
-      // 从剩余学生中随机选择一个
-      const randomIndex = Math.floor(Math.random() * this.remainingStudents.length);
-      const newStudent = this.remainingStudents[randomIndex];
-
-      // 替换指定位置的学生
-      this.pickedStudents[index] = newStudent;
-
-      // 添加动画效果
-      const resultCards = document.querySelectorAll('.result-card');
-      if (resultCards[index]) {
-        resultCards[index].classList.add('refresh-animation');
-        setTimeout(() => {
-          resultCards[index].classList.remove('refresh-animation');
-        }, 500);
+      this.pickedGroups = []; // Reset groups as well
+      this.animationStudents = [];
+      this.highlightedIndices = [];
+      clearTimeout(this.animationTimer);
+      this.count = getSetting('randomPicker.defaultCount'); // Reset count
+      this.numberOfGroups = getSetting('randomPicker.numberOfGroups'); // Reset group count
+      // Optionally reset filters
+      if (resetFilters) {
+          this.tempFilters.excludeAbsent = getSetting('randomPicker.excludeAbsent');
+          this.tempFilters.excludeLate = getSetting('randomPicker.excludeLate');
+          this.tempFilters.excludeExcluded = getSetting('randomPicker.excludeExcluded');
       }
     }
   }
-}
+};
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .random-picker-card {
   overflow: hidden;
 }
@@ -371,7 +463,7 @@ export default {
   font-size: 1.2rem;
 }
 
-// 过滤选项卡片样式
+/* 过滤选项卡片样式 */
 .filter-options-card {
   max-width: 450px;
   margin: 0 auto;
@@ -386,7 +478,7 @@ export default {
   }
 }
 
-// 学生列表提示框样式
+/* 学生列表提示框样式 */
 .student-list-tooltip {
   max-height: 200px;
   overflow-y: auto;
@@ -458,7 +550,7 @@ export default {
   }
 }
 
-// 刷新动画
+/* 刷新动画 */
 @keyframes refresh-pulse {
   0% {
     transform: scale(1);
@@ -480,7 +572,7 @@ export default {
   animation: refresh-pulse 0.5s ease;
 }
 
-// 动画效果
+/* 动画效果 */
 .shuffle-enter-active,
 .shuffle-leave-active {
   transition: all 0.5s ease;
@@ -496,7 +588,7 @@ export default {
   transition: transform 0.5s ease;
 }
 
-// 触摸屏优化
+/* 触摸屏优化 */
 @media (hover: none) {
 
   .counter-btn,
@@ -520,4 +612,65 @@ export default {
     font-size: 1rem;
   }
 }
+.mode-toggle {
+  margin-bottom: 20px;
+}
+
+.group-result-card {
+  margin-bottom: 12px;
+}
+
+.group-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #1976D2; /* Or use Vuetify theme color */
+}
+
+.student-chip {
+  margin: 2px;
+}
+
+.gap-2 > * {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+.counter-container {
+  margin-bottom: 20px;
+}
+
+.count-display {
+  min-width: 120px; /* Ensure space for label change */
+  text-align: center;
+}
+
+.result-container {
+  max-height: calc(100vh - 200px); /* Adjust as needed */
+  overflow-y: auto;
+}
+
+/* Add styles for group results if needed */
+.group-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.group-item {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.group-item-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.group-student-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
 </style>

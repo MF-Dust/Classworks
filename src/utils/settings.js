@@ -341,6 +341,13 @@ const settingsDefinitions = {
     description: "随机点名默认抽取人数",
     icon: "mdi-account",
   },
+  "randomPicker.numberOfGroups": {
+    type: "number",
+    default: 2,
+    validate: (value) => value >= 2 && value <= 10, // Example validation: 2 to 10 groups
+    description: "随机分组时的小组数量",
+    icon: "mdi-account-group-outline",
+  },
 };
 
 // 内存中缓存的设置值
