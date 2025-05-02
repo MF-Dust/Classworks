@@ -10,6 +10,7 @@ import { registerPlugins } from '@/plugins'
 // Components
 import App from './App.vue'
 import GlobalMessage from '@/components/GlobalMessage.vue'
+import AppFooter from '@/components/AppFooter.vue'
 
 // Composables
 import { createApp } from 'vue'
@@ -23,5 +24,6 @@ registerPlugins(app)
 app.use(messageService);
 
 app.component('GlobalMessage', GlobalMessage)
+app.component('AppFooter', AppFooter)
 
 app.mount('#app')

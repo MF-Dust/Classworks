@@ -199,30 +199,30 @@
     >
       <h1>出勤</h1>
       <h2>
-        <snap style="white-space: nowrap"> 应到 </snap>:
-        <snap style="white-space: nowrap">
+        <span style="white-space: nowrap"> 应到 </span>:
+        <span style="white-space: nowrap">
           {{
             state.studentList.length -
             state.boardData.attendance.exclude.length
           }}人
-        </snap>
+        </span>
       </h2>
       <h2>
-        <snap style="white-space: nowrap"> 实到 </snap>:
-        <snap style="white-space: nowrap">
+        <span style="white-space: nowrap"> 实到 </span>:
+        <span style="white-space: nowrap">
           {{
             state.studentList.length -
             state.boardData.attendance.absent.length -
             state.boardData.attendance.late.length -
             state.boardData.attendance.exclude.length
           }}人
-        </snap>
+        </span>
       </h2>
       <h2>
-        <snap style="white-space: nowrap"> 请假 </snap>:
-        <snap style="white-space: nowrap">
+        <span style="white-space: nowrap"> 请假 </span>:
+        <span style="white-space: nowrap">
           {{ state.boardData.attendance.absent.length }}人
-        </snap>
+        </span>
       </h2>
       <h3
         class="gray-text"
@@ -233,10 +233,10 @@
         ><span style="white-space: nowrap">{{ name }}</span>
       </h3>
       <h2>
-        <snap style="white-space: nowrap">迟到</snap>:
-        <snap style="white-space: nowrap">
+        <span style="white-space: nowrap">迟到</span>:
+        <span style="white-space: nowrap">
           {{ state.boardData.attendance.late.length }}人
-        </snap>
+        </span>
       </h2>
       <h3
         class="gray-text"
@@ -247,10 +247,10 @@
         ><span style="white-space: nowrap">{{ name }}</span>
       </h3>
       <h2>
-        <snap style="white-space: nowrap">不参与</snap>:
-        <snap style="white-space: nowrap">
+        <span style="white-space: nowrap">不参与</span>:
+        <span style="white-space: nowrap">
           {{ state.boardData.attendance.exclude.length }}人
-        </snap>
+        </span>
       </h2>
       <h3
         class="gray-text"
@@ -636,7 +636,7 @@ import "../styles/transitions.scss"; // 添加新的样式导入
 import { debounce, throttle } from "@/utils/debounce";
 import "../styles/global.scss";
 import { pinyin } from "pinyin-pro";
-import { mapState } from 'pinia'; // Import mapState
+import { mapState, mapActions } from 'pinia'; // Import mapState and mapActions
 import { useAppStore } from '@/stores/app'; // Import the store
 
 export default {
@@ -968,6 +968,27 @@ export default {
 
   async mounted() {
     try {
+      // 确保从设置中加载最新的科目列表到 Pinia store
+      const subjectsFromSettings = getSetting('subjects');
+      console.log('[index.vue mounted] Subjects from settings:', subjectsFromSettings);
+      
+      // 确保科目列表始终是一个数组，即使设置中没有科目
+      const subjectsArray = Array.isArray(subjectsFromSettings) ? subjectsFromSettings : [];
+      
+      // 如果科目列表为空，添加一些默认科目
+      if (subjectsArray.length === 0) {
+        console.log('[index.vue mounted] No subjects found, adding default subjects');
+        const defaultSubjects = ["语文", "数学", "英语", "物理", "化学", "生物", "政治", "历史", "地理", "其他"];
+        // 保存默认科目到设置
+        setSetting('subjects', defaultSubjects);
+        // 更新Pinia store
+        this.setSubjects(defaultSubjects);
+      } else {
+        // 更新Pinia store
+        this.setSubjects(subjectsArray);
+        console.log('[index.vue mounted] Updated Pinia store with subjects from settings');
+      }
+      
       this.updateBackendUrl();
       await this.initializeData();
       this.setupAutoRefresh();
@@ -1036,6 +1057,8 @@ export default {
   },
 
   methods: {
+    // Map actions from Pinia store
+    ...mapActions(useAppStore, ['setSubjects']),
     // 添加新的日期辅助方法
     ensureDate(dateInput) {
       if (dateInput instanceof Date) {
@@ -2082,7 +2105,16 @@ export default {
         }
 
         if (key === "subjects") {
-          this.state.availableSubjects = value;
+          // Use Pinia action to update subjects in the store and persist
+          if (Array.isArray(value)) {
+            // Assuming setSubjects action is mapped via mapActions
+            this.setSubjects(value); // Update Pinia store state
+            // Assuming setSetting is imported
+            setSetting('subjects', value); // Persist the setting
+            console.log('[index.vue] Updated subjects via URL config and persisted:', value);
+          } else {
+            console.warn('[index.vue] Invalid subjects format in URL config:', value);
+          }
           continue;
         }
 
