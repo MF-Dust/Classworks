@@ -78,7 +78,8 @@ export default {
     addSubject() {
       const subjectToAdd = this.newSubject.trim();
       if (subjectToAdd && !this.localSubjects.includes(subjectToAdd)) {
-        this.localSubjects.push(subjectToAdd);
+        // Create a new array reference
+        this.localSubjects = [...this.localSubjects, subjectToAdd];
         this.saveSubjects();
         this.newSubject = ''; // 清空输入框
         this.showSnackbarMessage('科目添加成功', 'success');
@@ -89,7 +90,9 @@ export default {
       }
     },
     removeSubject(index) {
-      const removedSubject = this.localSubjects.splice(index, 1)[0];
+      const removedSubject = this.localSubjects[index];
+      // Create a new array reference
+      this.localSubjects = this.localSubjects.filter((_, i) => i !== index);
       this.saveSubjects();
       this.showSnackbarMessage(`科目 "${removedSubject}" 已删除`, 'info');
     },

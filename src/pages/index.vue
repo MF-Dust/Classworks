@@ -975,18 +975,20 @@ export default {
       // 确保科目列表始终是一个数组，即使设置中没有科目
       const subjectsArray = Array.isArray(subjectsFromSettings) ? subjectsFromSettings : [];
       
-      // 如果科目列表为空，添加一些默认科目
-      if (subjectsArray.length === 0) {
-        console.log('[index.vue mounted] No subjects found, adding default subjects');
+      // 检查从设置中获取的原始值，而不是转换后的数组
+      if (subjectsFromSettings == null) { // Check for null or undefined specifically
+        console.log('[index.vue mounted] No subjects setting found or it is null/undefined, adding default subjects');
         const defaultSubjects = ["语文", "数学", "英语", "物理", "化学", "生物", "政治", "历史", "地理", "其他"];
         // 保存默认科目到设置
         setSetting('subjects', defaultSubjects);
         // 更新Pinia store
         this.setSubjects(defaultSubjects);
       } else {
+        // 确保 subjectsArray 是一个数组（即使设置中存的是空数组）
+        const subjectsArray = Array.isArray(subjectsFromSettings) ? subjectsFromSettings : [];
         // 更新Pinia store
         this.setSubjects(subjectsArray);
-        console.log('[index.vue mounted] Updated Pinia store with subjects from settings');
+        console.log('[index.vue mounted] Updated Pinia store with subjects from settings:', subjectsArray);
       }
       
       this.updateBackendUrl();

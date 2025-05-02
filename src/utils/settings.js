@@ -364,12 +364,64 @@ function loadSettings() {
     settingsCache = {};
   }
 
-  // 确保所有设置项都有值（使用默认值填充）
+  // Step 1: Ensure all defined keys exist in the cache, applying defaults if missing
+  // This happens *before* validation to guarantee the validation loop sees all keys.
   for (const [key, definition] of Object.entries(settingsDefinitions)) {
     if (!(key in settingsCache)) {
       settingsCache[key] = definition.default;
     }
   }
+
+  // Step 2: Validate types and values for all keys now present in the cache
+  for (const [key, definition] of Object.entries(settingsDefinitions)) {
+    let currentValue = settingsCache[key]; // Key is guaranteed to exist here
+    let needsUpdate = false;
+
+    if (!(key in settingsCache)) {
+      // Key missing, use default
+      needsUpdate = true;
+    } else {
+      // Key exists, validate type and value
+      const expectedType = definition.type;
+      const isArrayExpected = expectedType === 'array';
+      const isCurrentArray = Array.isArray(currentValue);
+
+      if (isArrayExpected && !isCurrentArray) {
+        // Expected array, but got something else
+        console.warn(`设置项 ${key} 类型错误，期望数组，得到 ${typeof currentValue}。重置为默认值。`);
+        needsUpdate = true;
+      } else if (!isArrayExpected && typeof currentValue !== expectedType) {
+        // Expected non-array, but type mismatch
+        console.warn(`设置项 ${key} 类型错误，期望 ${expectedType}，得到 ${typeof currentValue}。尝试转换或重置。`);
+        // Attempt conversion for basic types, otherwise reset
+        try {
+          if (expectedType === 'boolean') currentValue = Boolean(currentValue);
+          else if (expectedType === 'number') currentValue = Number(currentValue);
+          else if (expectedType === 'string') currentValue = String(currentValue);
+          else needsUpdate = true; // Cannot convert complex types, reset
+          
+          // Re-check type after conversion
+          if (typeof currentValue !== expectedType) needsUpdate = true;
+          else settingsCache[key] = currentValue; // Update cache with converted value
+
+        } catch (e) {
+          needsUpdate = true; // Conversion failed, reset
+        }
+      } 
+      
+      // Validate value if a validator exists and not already resetting
+      if (!needsUpdate && definition.validate && !definition.validate(currentValue)) {
+         console.warn(`设置项 ${key} 的值无效。重置为默认值。`);
+         needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      settingsCache[key] = definition.default;
+    }
+  }
+  // Save potentially corrected settings once after the entire validation loop
+  saveSettings();
 
   return settingsCache;
 }
@@ -380,36 +432,57 @@ function loadSettings() {
 function migrateFromLegacy() {
   const LEGACY_SETTINGS_KEY = "homeworkpage_settings";
   const LEGACY_MESSAGE_KEY = "homeworkpage_messages";
+  let migratedData = {}; // Start with empty
 
-  // 尝试从旧版本的设置中迁移
+  // Try migrating settings
   const legacySettings = localStorage.getItem(LEGACY_SETTINGS_KEY);
   if (legacySettings) {
     try {
-      const settings = JSON.parse(legacySettings);
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      // 可选：删除旧的设置
-      localStorage.removeItem(LEGACY_SETTINGS_KEY);
-      return settings;
+      migratedData = JSON.parse(legacySettings);
+      // Don't remove old key until successful save below
     } catch (error) {
       console.error("迁移旧设置失败:", error);
-    }
-  }
-  // 尝试从旧版本的message中迁移
-  const legacyMessages = localStorage.getItem(LEGACY_MESSAGE_KEY);
-  if (legacyMessages) {
-    try {
-      const messages = JSON.parse(legacyMessages);
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(messages));
-      // 可选：删除旧的message
-      localStorage.removeItem(LEGACY_MESSAGE_KEY);
-      return messages; // 返回迁移后的消息
-    } catch (error) {
-      console.error("迁移旧消息失败:", error);
+      migratedData = {}; // Reset on error
     }
   }
 
-  // 如果没有旧设置或迁移失败，返回空对象
-  return {};
+  // Try migrating messages (only if settings migration didn't yield data)
+  if (Object.keys(migratedData).length === 0) {
+      const legacyMessages = localStorage.getItem(LEGACY_MESSAGE_KEY);
+      if (legacyMessages) {
+          try {
+              // IMPORTANT: Assume legacy messages might not map directly to new settings.
+              // Avoid parsing messages directly into settings to prevent conflicts.
+              console.warn("发现旧版消息数据，但未执行自动迁移以避免冲突。将使用默认设置。");
+              localStorage.removeItem(LEGACY_MESSAGE_KEY); // Remove old key
+              migratedData = {}; // Force default settings if only messages found
+          } catch (error) {
+              console.error("解析或移除旧消息失败:", error);
+              migratedData = {}; // Reset on error
+          }
+      }
+  }
+
+  // **Crucial Check**: Validate migrated 'subjects' specifically
+  if (migratedData.subjects && !Array.isArray(migratedData.subjects)) {
+      console.warn(`迁移的数据中 'subjects' 不是数组 (类型: ${typeof migratedData.subjects})，将使用默认值。`, migratedData.subjects);
+      // Set to default *here*
+      migratedData.subjects = settingsDefinitions.subjects.default;
+  }
+
+  // If we successfully migrated settings from legacySettings, save them under the new key and remove old
+  if (Object.keys(migratedData).length > 0 && legacySettings) { 
+      try {
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(migratedData));
+          localStorage.removeItem(LEGACY_SETTINGS_KEY); // Remove old key only after successful save
+          console.log("旧设置已成功迁移并保存。");
+      } catch (saveError) {
+           console.error("保存迁移后的设置失败:", saveError);
+           return {}; // Return empty if save fails
+      }
+  }
+
+  return migratedData; // Return the potentially validated/corrected migrated data
 }
 
 /**
@@ -417,9 +490,18 @@ function migrateFromLegacy() {
  */
 function saveSettings() {
   try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsCache));
+    const settingsString = JSON.stringify(settingsCache);
+    localStorage.setItem(SETTINGS_STORAGE_KEY, settingsString);
   } catch (error) {
     console.error("保存设置失败:", error);
+    // More robust error handling:
+    if (error.name === 'QuotaExceededError' || (error.message && error.message.toLowerCase().includes('quota'))) {
+        alert('本地存储空间已满，无法保存设置。请尝试清理浏览器数据或联系支持。');
+    } else {
+        alert(`保存设置时发生未知错误: ${error.message}。请检查浏览器控制台获取详细信息。`);
+    }
+    // Depending on the app's needs, you might want to prevent further actions
+    // or attempt to revert the change in settingsCache here.
   }
 }
 
@@ -492,8 +574,15 @@ function setSetting(key, value) {
 
   try {
     const oldValue = settingsCache[key];
-    // 类型转换
-    if (typeof value !== definition.type) {
+    // 类型转换和检查
+    if (definition.type === "array") {
+      if (!Array.isArray(value)) {
+        console.warn(`设置项 ${key} 的值类型应为数组，但接收到 ${typeof value}`);
+        return false; // 如果期望数组但不是数组，则不进行设置
+      }
+      // 对于数组类型，不需要额外转换
+    } else if (typeof value !== definition.type) {
+      // 对非数组类型进行转换
       value =
         definition.type === "boolean"
           ? Boolean(value)
