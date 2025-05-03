@@ -1,0 +1,82 @@
+// 作业标签样式
+
+.homework-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin: 0 4px;
+  font-size: 0.85rem;
+  color: white;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  &:active {
+    cursor: grabbing;
+    transform: scale(0.95);
+  }
+  
+  &.dragging {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+// 标签拖拽目标区域样式
+.homework-textarea {
+  position: relative;
+  transition: all 0.2s ease;
+  
+  &.drag-over {
+    border-color: rgba(var(--v-theme-primary), 0.7) !important;
+    background-color: rgba(var(--v-theme-primary), 0.05) !important;
+  }
+}
+
+// 标签容器样式
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  
+  &:empty {
+    display: none;
+  }
+}
+
+// 标签管理样式
+.tag-management {
+  .tag-preview {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    margin: 4px;
+    font-size: 0.9rem;
+    color: white;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+  }
+  
+  .tag-form {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 8px;
+    background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  }
+}

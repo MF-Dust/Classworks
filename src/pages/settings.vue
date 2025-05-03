@@ -41,6 +41,9 @@
         <v-col cols="12" md="6">
           <theme-settings-card border />
         </v-col>
+        <v-col cols="12" md="6">
+          <tag-management-card @saved="onSettingsSaved" border />
+        </v-col>
         <v-col cols="12">
           <settings-link-generator border />
         </v-col>
@@ -189,6 +192,7 @@ import RefreshSettingsCard from '@/components/settings/cards/RefreshSettingsCard
 import DisplaySettingsCard from '@/components/settings/cards/DisplaySettingsCard.vue';
 import DataProviderSettingsCard from '@/components/settings/cards/DataProviderSettingsCard.vue';
 import ThemeSettingsCard from '@/components/settings/cards/ThemeSettingsCard.vue';
+import TagManagementCard from '@/components/settings/cards/TagManagementCard.vue';
 import EchoChamberCard from '@/components/settings/cards/EchoChamberCard.vue';
 import {
   getSetting,
@@ -219,6 +223,7 @@ export default {
     AboutCard,
     DataProviderSettingsCard,
     ThemeSettingsCard,
+    TagManagementCard,
     EchoChamberCard,
     SettingsExplorer,
     SettingsLinkGenerator,

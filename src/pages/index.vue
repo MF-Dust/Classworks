@@ -280,8 +280,50 @@
           auto-grow
           placeholder="使用换行表示分条"
           rows="5"
+          class="homework-textarea"
+          :class="{ 'drag-over': isDragOver }"
+          @dragover.prevent="handleDragOver"
+          @dragleave.prevent="handleDragLeave"
+          @drop="handleTagDrop"
         />
+        
+        <!-- 标签区域 -->
+        <div v-if="tagsEnabled" class="mt-3">
+          <div class="d-flex align-center mb-2">
+            <v-icon icon="mdi-tag-multiple" size="small" class="mr-2" />
+            <span class="text-subtitle-2">可用标签</span>
+            <v-tooltip location="top" text="拖拽标签到文本中">
+              <template #activator="{ props }">
+                <v-icon icon="mdi-help-circle-outline" size="x-small" class="ml-2" v-bind="props" />
+              </template>
+            </v-tooltip>
+          </div>
+          
+          <div class="tags-container">
+            <homework-tag
+              v-for="tag in availableTags"
+              :key="tag.id"
+              :id="tag.id"
+              :text="tag.text"
+              :color="tag.color"
+            />
+            <div v-if="availableTags.length === 0" class="text-caption text-grey pa-2">
+              在设置中添加标签
+            </div>
+          </div>
+        </div>
       </v-card-text>
+      
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          color="primary"
+          @click="saveHomework"
+          :loading="loading.upload"
+        >
+          保存
+        </v-btn>
+      </v-card-actions>
     </v-card>
   </v-dialog>
 
@@ -623,6 +665,7 @@
 <script>
 import MessageLog from "@/components/MessageLog.vue";
 import RandomPicker from "@/components/RandomPicker.vue"; // 导入随机点名组件
+import HomeworkTag from "@/components/HomeworkTag.vue"; // 导入作业标签组件
 import dataProvider from "@/utils/dataProvider";
 import {
   getSetting,
@@ -645,12 +688,14 @@ export default {
   components: {
     MessageLog,
     RandomPicker, // 注册随机点名组件
+    HomeworkTag, // 注册作业标签组件
   },
   data() {
     return {
       dataKey: "",
       provider: "",
       useDisplay: useDisplay,
+      isDragOver: false, // 添加拖拽状态标记
       state: {
         classNumber: "",
         studentList: [],
@@ -741,6 +786,15 @@ export default {
       const mappedSubjects = storeSubjects.map(subjectName => ({ key: subjectName, name: subjectName }));
       console.log('[index.vue] Computed availableSubjects:', mappedSubjects); // 添加日志
       return mappedSubjects;
+    },
+    
+    // 标签相关计算属性
+    tagsEnabled() {
+      return getSetting('tags.enabled') || false;
+    },
+    
+    availableTags() {
+      return getSetting('tags.list') || [];
     },
     isMobile() {
       return useDisplay().mobile.value;
@@ -1222,6 +1276,51 @@ export default {
       }
 
       this.state.dialogVisible = false;
+    },
+    
+    // 处理拖拽进入
+    handleDragOver(event) {
+      event.preventDefault();
+      this.isDragOver = true;
+    },
+    
+    // 处理拖拽离开
+    handleDragLeave(event) {
+      event.preventDefault();
+      this.isDragOver = false;
+    },
+    
+    // 处理标签拖放
+    handleTagDrop(event) {
+      event.preventDefault();
+      this.isDragOver = false; // 重置拖拽状态
+      
+      try {
+        // 获取拖拽的标签数据
+        const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+        
+        if (data.type === 'homework-tag') {
+          // 获取光标位置
+          const textarea = this.$refs.inputRef.$el.querySelector('textarea');
+          const cursorPos = textarea.selectionStart;
+          
+          // 在光标位置插入标签文本
+          const tagText = ` [${data.text}] `;
+          const newText = this.state.textarea.substring(0, cursorPos) + 
+                         tagText + 
+                         this.state.textarea.substring(cursorPos);
+          
+          this.state.textarea = newText;
+          
+          // 更新光标位置到标签后面
+          this.$nextTick(() => {
+            textarea.focus();
+            textarea.setSelectionRange(cursorPos + tagText.length, cursorPos + tagText.length);
+          });
+        }
+      } catch (error) {
+        console.error('标签拖放处理错误:', error);
+      }
     },
 
     async uploadData() {
