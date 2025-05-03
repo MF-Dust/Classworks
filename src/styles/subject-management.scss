@@ -1,0 +1,46 @@
+// 科目管理样式优化
+
+// 科目卡片样式
+.subject-card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.05);
+  background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  
+  &:hover {
+    border-color: rgba(var(--v-theme-primary), 0.3);
+    background-color: rgba(var(--v-theme-primary), 0.08);
+  }
+  
+  .v-card-text {
+    display: flex;
+    align-items: center;
+  }
+  
+  .v-btn {
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    
+    &:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+  }
+}
+
+// 科目管理卡片
+.settings-card {
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  .v-card-title {
+    border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  }
+}
+
+// 响应式调整
+@media (max-width: 600px) {
+  .subject-card {
+    margin-bottom: 8px;
+  }
+}

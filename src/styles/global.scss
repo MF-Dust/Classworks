@@ -7,12 +7,12 @@
   
   &:hover, &:focus {
     transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
   }
   
   &:active {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08) !important;
   }
 }
 
@@ -83,4 +83,4 @@ html {
     padding-top: 16px;
     padding-bottom: 16px;
   }
-} 
+}

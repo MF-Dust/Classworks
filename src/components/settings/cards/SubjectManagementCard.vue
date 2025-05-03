@@ -1,28 +1,35 @@
 <template>
-  <v-card class="settings-card">
-    <v-card-title>
-      <v-icon left>mdi-book-open-page-variant-outline</v-icon>
-      科目管理
+  <v-card class="settings-card hover-card glow-card rounded-lg">
+    <v-card-title class="d-flex align-center pb-2">
+      <v-icon class="me-2" color="primary">mdi-book-open-page-variant-outline</v-icon>
+      <span class="text-h6">科目管理</span>
     </v-card-title>
     <v-card-text>
       <v-row dense>
         <v-col v-if="localSubjects.length === 0" cols="12">
-          <p class="text-grey text-center my-4">暂无科目</p>
+          <v-card variant="tonal" color="info" class="text-center my-2 py-4">
+            <v-card-text class="text-body-1">暂无科目，请添加科目</v-card-text>
+          </v-card>
         </v-col>
         <v-col
           v-for="(subject, index) in localSubjects"
           :key="index"
           cols="12" sm="6" md="4" lg="3"
         >
-          <v-card variant="outlined" class="subject-card">
-            <v-card-text class="d-flex justify-space-between align-center pa-2">
-              <span class="text-body-1">{{ subject }}</span>
+          <v-card 
+            variant="outlined" 
+            class="subject-card hover-card rounded-lg mb-2"
+            elevation="1"
+          >
+            <v-card-text class="d-flex justify-space-between align-center pa-3">
+              <span class="text-body-1 font-weight-medium">{{ subject }}</span>
               <v-btn
                 icon="mdi-delete"
-                size="x-small"
+                size="small"
                 variant="text"
                 color="error"
                 @click="removeSubject(index)"
+                class="ms-2"
               />
             </v-card-text>
           </v-card>
@@ -40,7 +47,8 @@
         append-inner-icon="mdi-plus-circle"
         @click:append-inner="addSubject"
         @keyup.enter="addSubject"
-        class="mb-2"
+        class="mb-2 rounded-lg"
+        color="primary"
       ></v-text-field>
 
     </v-card-text>

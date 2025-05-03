@@ -202,6 +202,7 @@ import StudentListCard from '@/components/settings/StudentListCard.vue';
 import AboutCard from '@/components/settings/AboutCard.vue';
 import SubjectManagementCard from '@/components/settings/cards/SubjectManagementCard.vue'; // 导入科目管理卡片
 import '../styles/settings.scss';
+import '../styles/subject-management.scss'; // 导入科目管理样式
 import dataProvider from '@/utils/dataProvider';
 import SettingsExplorer from '@/components/settings/SettingsExplorer.vue';
 import SettingsLinkGenerator from '@/components/SettingsLinkGenerator.vue';

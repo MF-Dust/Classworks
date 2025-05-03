@@ -635,6 +635,7 @@ import "../styles/index.scss";
 import "../styles/transitions.scss"; // 添加新的样式导入
 import { debounce, throttle } from "@/utils/debounce";
 import "../styles/global.scss";
+import "../styles/subject-management.scss"; // 添加科目管理样式
 import { pinyin } from "pinyin-pro";
 import { mapState, mapActions } from 'pinia'; // Import mapState and mapActions
 import { useAppStore } from '@/stores/app'; // Import the store
