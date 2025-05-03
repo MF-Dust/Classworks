@@ -274,17 +274,18 @@
         {{ autoSave ? "喵？喵呜！" : "写完后点击上传谢谢喵" }}
       </v-card-subtitle>
       <v-card-text>
-        <v-textarea
+        <!-- Replace v-textarea with contenteditable div -->
+        <div
           ref="inputRef"
-          v-model="state.textarea"
-          auto-grow
-          placeholder="使用换行表示分条"
-          rows="5"
-          class="homework-textarea"
+          contenteditable="true"
+          class="homework-textarea pa-2 elevation-1 rounded"
           :class="{ 'drag-over': isDragOver }"
+          style="min-height: 120px; border: 1px solid rgba(0,0,0,0.12); outline: none;"
+          @input="handleContentEditableInput" 
           @dragover.prevent="handleDragOver"
           @dragleave.prevent="handleDragLeave"
           @drop="handleTagDrop"
+          v-html="state.textarea" 
         />
         
         <!-- 标签区域 -->
@@ -318,7 +319,7 @@
         <v-spacer />
         <v-btn
           color="primary"
-          @click="saveHomework"
+          @click="handleClose" 
           :loading="loading.upload"
         >
           保存
@@ -1253,10 +1254,45 @@ export default {
       }
     },
 
+    // 新增：处理 contenteditable div 的输入事件
+    handleContentEditableInput() {
+      // 不再更新 state.textarea 以防止重新渲染导致光标跳动
+      // 内容将在 handleClose 中直接从 div 读取
+    },
+
     async handleClose() {
       if (!this.currentEditSubject) return;
 
-      const content = this.state.textarea.trim();
+      // 直接从 contenteditable div 获取 HTML 内容
+      const rawHtml = this.$refs.inputRef?.innerHTML || '';
+      
+      // 创建一个临时 div 来解析 HTML 并提取纯文本
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = rawHtml;
+      
+      // 提取纯文本，并将标签替换回文本标记
+      let content = '';
+      tempDiv.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          content += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('homework-tag-inline')) {
+          // 将行内标签转换回文本标记，例如 [标签文本]
+          content += ` [${node.textContent}] `;
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+          content += '\n'; // 保留换行符
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          // 对于其他元素，递归获取文本或根据需要处理
+          // 检查是否为 Vuetify 的 v-chip 结构（可能嵌套较深）
+          const chipText = node.querySelector('.v-chip__content')?.textContent || node.textContent;
+          if (node.classList.contains('v-chip')) { // 假设标签是用 v-chip 渲染的
+             content += ` [${chipText.trim()}] `;
+          } else {
+             content += node.textContent; // 简化处理，可能丢失格式
+          }
+        }
+      });
+      content = content.replace(/\s+/g, ' ').trim(); // 规范化空格并去除首尾空格
+
       const originalContent =
         this.state.boardData.homework[this.currentEditSubject]?.content || "";
 
@@ -1264,7 +1300,7 @@ export default {
       if (content !== originalContent.trim()) {
         // 无论内容是否为空，都保留科目结构
         this.state.boardData.homework[this.currentEditSubject] = {
-          content: content,
+          content: content, // 保存处理后的纯文本
         };
 
         this.state.synced = false;
@@ -1300,23 +1336,52 @@ export default {
         const data = JSON.parse(event.dataTransfer.getData('text/plain'));
         
         if (data.type === 'homework-tag') {
-          // 获取光标位置
-          const textarea = this.$refs.inputRef.$el.querySelector('textarea');
-          const cursorPos = textarea.selectionStart;
+          const inputDiv = this.$refs.inputRef; // 获取 contenteditable div
+          inputDiv.focus(); // 确保 div 获得焦点
+
+          // 创建标签的 HTML 元素 (使用 v-chip 类似样式)
+          const tagElement = document.createElement('span');
+          tagElement.className = 'homework-tag-inline v-chip v-chip--size-small theme--light v-chip--outlined'; // 基础样式
+          tagElement.style.borderColor = data.color;
+          tagElement.style.color = data.color;
+          tagElement.style.margin = '0 2px'; // 外边距
+          tagElement.style.padding = '2px 6px'; // 内边距
+          tagElement.style.borderRadius = '12px'; // 圆角
+          tagElement.style.display = 'inline-block'; // 确保正确渲染
+          tagElement.style.cursor = 'default';
+          tagElement.style.verticalAlign = 'middle'; // 垂直居中
+          tagElement.contentEditable = false; // 使标签本身不可编辑
           
-          // 在光标位置插入标签文本
-          const tagText = ` [${data.text}] `;
-          const newText = this.state.textarea.substring(0, cursorPos) + 
-                         tagText + 
-                         this.state.textarea.substring(cursorPos);
-          
-          this.state.textarea = newText;
-          
-          // 更新光标位置到标签后面
-          this.$nextTick(() => {
-            textarea.focus();
-            textarea.setSelectionRange(cursorPos + tagText.length, cursorPos + tagText.length);
-          });
+          // 添加 v-chip 的内部结构（可选，为了更接近 v-chip 外观）
+          const chipContent = document.createElement('span');
+          chipContent.className = 'v-chip__content';
+          chipContent.textContent = data.text;
+          tagElement.appendChild(chipContent);
+
+          // 插入标签元素到光标位置
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents(); // 删除选中的内容（如果有）
+            
+            // 插入标签和后面的空格
+            const spaceNode = document.createTextNode('\u00A0'); // 使用不间断空格
+            range.insertNode(spaceNode);
+            range.insertNode(tagElement);
+
+            // 将光标移到标签后面
+            range.setStartAfter(spaceNode);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          } else {
+            // 如果没有选区，直接追加到末尾
+            inputDiv.appendChild(tagElement);
+            inputDiv.appendChild(document.createTextNode('\u00A0')); // 添加不间断空格
+          }
+
+          // 手动触发 input 事件以更新 v-model (state.textarea)
+          this.handleContentEditableInput({ target: inputDiv });
         }
       } catch (error) {
         console.error('标签拖放处理错误:', error);
@@ -1388,11 +1453,34 @@ export default {
       this.state.dialogTitle =
         this.availableSubjects.find((s) => s.key === subject)?.name ||
         subject;
-      this.state.textarea = this.state.boardData.homework[subject].content;
+
+      // Convert text tags [tag] to styled HTML spans before displaying
+      let initialContent = this.state.boardData.homework[subject].content || '';
+      const tagRegex = /\s*\[([^\]]+)\]\s*/g; // Regex to find [tag]
+      initialContent = initialContent.replace(tagRegex, (match, tagText) => {
+        const tagData = this.availableTags.find(t => t.text === tagText.trim());
+        if (tagData) {
+          // Replicate the tag structure created in handleTagDrop
+          return `<span class="homework-tag-inline v-chip v-chip--size-small theme--light v-chip--outlined" style="border-color: ${tagData.color}; color: ${tagData.color}; margin: 0 2px; padding: 2px 6px; border-radius: 12px; display: inline-block; cursor: default; vertical-align: middle;" contenteditable="false"><span class="v-chip__content">${tagData.text}</span></span>\u00A0`; // Added non-breaking space
+        } else {
+          return match; // Keep original text if tag not found
+        }
+      });
+
+      this.state.textarea = initialContent; // Set the converted HTML content
       this.state.dialogVisible = true;
       this.$nextTick(() => {
         if (this.$refs.inputRef) {
+          // For contenteditable, we might need to manually set innerHTML again after mount
+          this.$refs.inputRef.innerHTML = this.state.textarea;
           this.$refs.inputRef.focus();
+          // Optional: Move cursor to the end
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(this.$refs.inputRef);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
         }
       });
     },

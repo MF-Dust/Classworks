@@ -73,6 +73,21 @@ const settingsDefinitions = {
     icon: "mdi-database-sync",
   },
 
+  // 作业标签设置
+  "tags.enabled": {
+    type: "boolean",
+    default: false,
+    description: "是否启用作业标签功能",
+    icon: "mdi-tag-multiple-outline",
+  },
+  "tags.list": {
+    type: "array",
+    default: [],
+    description: "用户定义的作业标签列表",
+    icon: "mdi-tag-text-outline",
+    // 结构: [{ id: string, text: string, color: string }]
+  },
+
   // 添加 subjects 定义
   subjects: {
     type: "array",
