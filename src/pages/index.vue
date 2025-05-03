@@ -75,14 +75,8 @@
             >
               <v-card-title>{{ item.name }}</v-card-title>
               <v-card-text :style="state.contentStyle">
-                <v-list>
-                  <v-list-item
-                    v-for="text in splitPoint(item.content)"
-                    :key="text"
-                  >
-                    {{ text }}
-                  </v-list-item>
-                </v-list>
+                <!-- Use v-html to render parsed markdown -->
+                <div v-html="parsedContent(item.content)" class="markdown-content"></div>
               </v-card-text>
             </v-card>
           </div>
@@ -683,6 +677,8 @@ import "../styles/subject-management.scss"; // 添加科目管理样式
 import { pinyin } from "pinyin-pro";
 import { mapState, mapActions } from 'pinia'; // Import mapState and mapActions
 import { useAppStore } from '@/stores/app'; // Import the store
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 export default {
   name: "Classworks 作业板",
@@ -1115,6 +1111,15 @@ export default {
   },
 
   methods: {
+    // 解析 Markdown 内容
+    parsedContent(content) {
+      if (!content) return '';
+      // 基础解析
+      let rawMarkup = marked.parse(content);
+      // 安全过滤
+      return DOMPurify.sanitize(rawMarkup);
+    },
+
     // Map actions from Pinia store
     ...mapActions(useAppStore, ['setSubjects']),
     // 添加新的日期辅助方法
@@ -1330,14 +1335,107 @@ export default {
     handleTagDrop(event) {
       event.preventDefault();
       this.isDragOver = false; // 重置拖拽状态
-      
+
       try {
         // 获取拖拽的标签数据
         const data = JSON.parse(event.dataTransfer.getData('text/plain'));
-        
+
         if (data.type === 'homework-tag') {
           const inputDiv = this.$refs.inputRef; // 获取 contenteditable div
           inputDiv.focus(); // 确保 div 获得焦点
+
+          // --- 新增：检查当前行是否已存在该标签 ---
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const container = range.startContainer;
+            let lineStartNode = container;
+            let lineEndNode = container;
+
+            // 寻找行首：向上遍历直到遇到 BR 或 div 顶部
+            let tempNode = container;
+            while (tempNode && tempNode !== inputDiv) {
+              if (tempNode.nodeName === 'BR') {
+                lineStartNode = tempNode.nextSibling; // BR 后面的节点是下一行的开始
+                break;
+              }
+              if (!tempNode.previousSibling) { // 到达父节点的第一个子节点
+                 if (tempNode.parentNode === inputDiv) {
+                    lineStartNode = tempNode; // 如果父节点是 inputDiv，这就是行首
+                    break;
+                 } else {
+                    tempNode = tempNode.parentNode; // 否则继续向上找
+                    continue;
+                 }
+              }
+              tempNode = tempNode.previousSibling;
+            }
+             // 如果循环结束还没找到 BR 且 tempNode 是 inputDiv 或 null，说明在第一行
+            if (!lineStartNode || lineStartNode === container && tempNode === inputDiv) {
+                lineStartNode = inputDiv.firstChild;
+            }
+            if (!lineStartNode) lineStartNode = inputDiv.firstChild; // 保底，指向第一个子节点
+
+            // 寻找行尾：向下遍历直到遇到 BR 或 div 底部
+            tempNode = container;
+            while (tempNode && tempNode !== inputDiv) {
+              if (tempNode.nodeName === 'BR') {
+                lineEndNode = tempNode.previousSibling; // BR 前面的节点是当前行的结束
+                break;
+              }
+               if (!tempNode.nextSibling) { // 到达父节点的最后一个子节点
+                 if (tempNode.parentNode === inputDiv) {
+                    lineEndNode = tempNode; // 如果父节点是 inputDiv，这就是行尾
+                    break;
+                 } else {
+                    tempNode = tempNode.parentNode; // 否则继续向上找
+                    continue;
+                 }
+              }
+              tempNode = tempNode.nextSibling;
+            }
+            // 如果循环结束还没找到 BR 且 tempNode 是 inputDiv 或 null，说明在最后一行
+            if (!lineEndNode || lineEndNode === container && tempNode === inputDiv) {
+                lineEndNode = inputDiv.lastChild;
+            }
+            if (!lineEndNode) lineEndNode = inputDiv.lastChild; // 保底，指向最后一个子节点
+
+            // 提取行内容并检查标签
+            let currentLineText = '';
+            let currentNode = lineStartNode;
+            const tagTextToCheck = `[${data.text}]`;
+            let tagFound = false;
+
+            while (currentNode) {
+              if (currentNode.nodeType === Node.TEXT_NODE) {
+                currentLineText += currentNode.textContent;
+              } else if (currentNode.nodeType === Node.ELEMENT_NODE && currentNode.classList.contains('homework-tag-inline')) {
+                const chipContent = currentNode.querySelector('.v-chip__content');
+                if (chipContent) {
+                  const currentTagText = `[${chipContent.textContent}]`;
+                  currentLineText += ` ${currentTagText} `;
+                  if (currentTagText.trim() === tagTextToCheck.trim()) {
+                    tagFound = true;
+                    break; // 找到就停止检查
+                  }
+                }
+              }
+              
+              if (currentNode === lineEndNode) break; // 到达行尾
+              currentNode = currentNode.nextSibling;
+              // 如果 nextSibling 为 null，尝试跳到父节点的下一个兄弟节点（处理嵌套情况，简化）
+              if (!currentNode && lineEndNode.parentNode !== inputDiv) {
+                  currentNode = lineEndNode.parentNode.nextSibling;
+              }
+            }
+
+            // 如果找到重复标签，则提示并返回
+            if (tagFound) {
+              this.$message.warning('重复标签', `这一行已经有 "${data.text}" 标签了。`);
+              return; // 阻止插入
+            }
+          }
+          // --- 检查结束 ---
 
           // 创建标签的 HTML 元素 (使用 v-chip 类似样式)
           const tagElement = document.createElement('span');
@@ -1351,19 +1449,18 @@ export default {
           tagElement.style.cursor = 'default';
           tagElement.style.verticalAlign = 'middle'; // 垂直居中
           tagElement.contentEditable = false; // 使标签本身不可编辑
-          
-          // 添加 v-chip 的内部结构（可选，为了更接近 v-chip 外观）
-          const chipContent = document.createElement('span');
-          chipContent.className = 'v-chip__content';
-          chipContent.textContent = data.text;
-          tagElement.appendChild(chipContent);
 
-          // 插入标签元素到光标位置
-          const selection = window.getSelection();
+          // 添加 v-chip 的内部结构（可选，为了更接近 v-chip 外观）
+          const chipContentElement = document.createElement('span'); // Renamed variable
+          chipContentElement.className = 'v-chip__content';
+          chipContentElement.textContent = data.text;
+          tagElement.appendChild(chipContentElement);
+
+          // 插入标签元素到光标位置 (复用之前的 selection)
           if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
+            const range = selection.getRangeAt(0); // 重新获取 range
             range.deleteContents(); // 删除选中的内容（如果有）
-            
+
             // 插入标签和后面的空格
             const spaceNode = document.createTextNode('\u00A0'); // 使用不间断空格
             range.insertNode(spaceNode);
@@ -1380,11 +1477,12 @@ export default {
             inputDiv.appendChild(document.createTextNode('\u00A0')); // 添加不间断空格
           }
 
-          // 手动触发 input 事件以更新 v-model (state.textarea)
-          this.handleContentEditableInput({ target: inputDiv });
+          // 手动触发 input 事件以更新内部状态，但不直接修改 v-model
+          this.handleContentEditableInput(); // 调用无参数版本或传递必要信息
         }
       } catch (error) {
         console.error('标签拖放处理错误:', error);
+        this.$message.error('操作失败', '处理标签拖放时出错');
       }
     },
 
@@ -2325,3 +2423,79 @@ export default {
   },
 };
 </script>
+
+<style>
+/* Basic Markdown Styling */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.markdown-content p {
+  margin-bottom: 0.8em;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.8em;
+}
+
+.markdown-content li > ul,
+.markdown-content li > ol {
+  margin-bottom: 0;
+}
+
+.markdown-content code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid #ccc;
+  padding-left: 1em;
+  margin-left: 0;
+  color: #666;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin-bottom: 1em;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #ddd;
+  padding: 0.5em;
+}
+
+.markdown-content th {
+  background-color: #f8f8f8;
+  font-weight: bold;
+}
+</style>
