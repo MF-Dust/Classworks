@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "vercel-build": " pnpm install  && pnpm run build"
+    "vercel-build": "pnpm run build"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
