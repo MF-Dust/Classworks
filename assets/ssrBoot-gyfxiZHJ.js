@@ -1,1 +1,0 @@
-import{N as t,W as e,O as s,aW as n}from"./index-Co3nJdql.js";function i(){const o=t(!1);return e(()=>{window.requestAnimationFrame(()=>{o.value=!0})}),{ssrBootStyles:s(()=>o.value?void 0:{transition:"none !important"}),isBooted:n(o)}}export{i as u};
